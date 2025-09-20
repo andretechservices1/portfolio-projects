@@ -16,13 +16,21 @@ scaler = joblib.load(os.path.join(HERE, "fraud_scaler.joblib"))
 # ---------------------------------------------------
 # Load dataset (for visualizations only)
 # ---------------------------------------------------
-data_path = os.path.join(HERE, "creditcard.csv")
+if os.path.exists(os.path.join(HERE, "creditcard_sample.csv")):
+    data_path = os.path.join(HERE, "creditcard_sample.csv")
+elif os.path.exists(os.path.join(HERE, "creditcard.csv")):
+    data_path = os.path.join(HERE, "creditcard.csv")
+else:
+    st.error("❌ No dataset found. Please add creditcard_sample.csv or creditcard.csv")
+    st.stop()
+
 df = pd.read_csv(data_path)
 
-# Toggle: full dataset vs 10k sample
-use_sample = st.sidebar.checkbox("Use 10,000 sample for speed", value=True)
-if use_sample:
-    df = df.sample(n=10000, random_state=42)
+# Toggle: full dataset vs 10k sample (only applies if full dataset is present)
+if "creditcard.csv" in data_path:
+    use_sample = st.sidebar.checkbox("Use 10,000 sample for speed", value=True)
+    if use_sample and len(df) > 10000:
+        df = df.sample(n=10000, random_state=42)
 
 # ---------------------------------------------------
 # Streamlit UI
@@ -110,38 +118,32 @@ st.header("📊 Dataset Visualizations")
 
 # Fraud vs Legit count
 st.subheader("Fraud vs Legit Count (from dataset)")
-count_data = df["Class"].value_counts().reset_index()
-count_data.columns = ["Prediction", "count"]
-count_data["Prediction"] = count_data["Prediction"].map({0: "Legit", 1: "Fraud"})
+if "Class" in df.columns:
+    count_data = df["Class"].value_counts().reset_index()
+    count_data.columns = ["Prediction", "count"]
+    count_data["Prediction"] = count_data["Prediction"].map({0: "Legit", 1: "Fraud"})
 
-bar_fig = px.bar(
-    count_data,
-    x="Prediction",
-    y="count",
-    color="Prediction",
-    text="count",
-    title="Fraud vs Legit Count"
-)
-st.plotly_chart(bar_fig)
+    bar_fig = px.bar(
+        count_data,
+        x="Prediction",
+        y="count",
+        color="Prediction",
+        text="count",
+        title="Fraud vs Legit Count"
+    )
+    st.plotly_chart(bar_fig)
 
 # Fraud probability distribution (dataset)
-st.subheader("Fraud Probability Distribution (from dataset)")
-X_scaled = scaler.transform(df.drop("Class", axis=1))
-y_probs = model.predict_proba(X_scaled)[:, 1]
+if "Class" in df.columns:
+    st.subheader("Fraud Probability Distribution (from dataset)")
+    X_scaled = scaler.transform(df.drop("Class", axis=1))
+    y_probs = model.predict_proba(X_scaled)[:, 1]
 
-hist_fig = px.histogram(
-    x=y_probs,
-    nbins=30,
-    title="Distribution of Fraud Probabilities (Dataset)",
-    labels={"x": "Fraud Probability"},
-    color=df["Class"].map({0: "Legit", 1: "Fraud"})
-)
-st.plotly_chart(hist_fig)
-
-
-
-
-
-
-
-
+    hist_fig = px.histogram(
+        x=y_probs,
+        nbins=30,
+        title="Distribution of Fraud Probabilities (Dataset)",
+        labels={"x": "Fraud Probability"},
+        color=df["Class"].map({0: "Legit", 1: "Fraud"})
+    )
+    st.plotly_chart(hist_fig)
